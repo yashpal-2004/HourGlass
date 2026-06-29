@@ -7,7 +7,6 @@ import { X, Copy, Trash2, Edit2, Plus } from 'lucide-react';
 import { 
   resolveCellsForSlot as resolveCellsForSlotUtil, 
   resolveCell as resolveCellUtil, 
-  getCellCategory as getCellCategoryUtil, 
   getDayStats as getDayStatsUtil 
 } from '../../utils/timetableUtils';
 
@@ -36,7 +35,6 @@ export const Grid: React.FC = () => {
     consumeAddEvent,
   } = useTimetable();
 
-  const getCellCategory = (cell: TimetableCell) => getCellCategoryUtil(cell);
   const getDayStats = (dayId: string) => getDayStatsUtil(dayId, cells, slots, currentDate);
 
   // Cell Editing Modal State
@@ -1795,42 +1793,15 @@ export const Grid: React.FC = () => {
         const day = days.find(d => d.id === selectedDayDetailId);
         if (!day) return null;
 
-        // Calculate statistics without counting duplicate spanned events multiple times
-        let totalMinutes = 0;
-        let academicMins = 0;
-        let studyMins = 0;
-        let routineMins = 0;
-        let wasteMins = 0;
-
-        const countedEvents = new Set<string>();
-        const dayCells = Object.values(cells).filter(c => c.dayId === day.id && c.subject && c.subject.trim() !== '');
-
-        dayCells.forEach(cell => {
-          const slot = slots.find(s => s.id === cell.slotId);
-          const eventKey = cell.eventStartTime && cell.eventEndTime
-            ? `${cell.subject}-${cell.eventStartTime}-${cell.eventEndTime}`
-            : `${cell.slotId}-${cell.subject}`;
-
-          if (!countedEvents.has(eventKey)) {
-            countedEvents.add(eventKey);
-
-            const startStr = cell.eventStartTime || slot?.startTime;
-            const endStr = cell.eventEndTime || slot?.endTime;
-            if (startStr && endStr) {
-              const [sh, sm] = startStr.split(':').map(Number);
-              const [eh, em] = endStr.split(':').map(Number);
-              const diff = (eh * 60 + em) - (sh * 60 + sm);
-              if (diff > 0) {
-                totalMinutes += diff;
-                const category = getCellCategory(cell);
-                if (category === 'academic') academicMins += diff;
-                else if (category === 'study') studyMins += diff;
-                else if (category === 'routine') routineMins += diff;
-                else if (category === 'waste') wasteMins += diff;
-              }
-            }
-          }
-        });
+        // Calculate statistics using helper function
+        const {
+          totalMinutes,
+          academicMins,
+          studyMins,
+          routineMins,
+          wasteMins,
+          freeMins
+        } = getDayStats(day.id);
 
         const formatMins = (mins: number) => {
           const h = Math.floor(mins / 60);
@@ -1841,8 +1812,6 @@ export const Grid: React.FC = () => {
         const getPercentage = (mins: number) => {
           return ((mins / 1440) * 100).toFixed(1) + '%';
         };
-
-        const freeMins = Math.max(0, 1440 - totalMinutes);
 
         return (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[60] no-print p-4">
@@ -1930,8 +1899,8 @@ export const Grid: React.FC = () => {
                   let i = 0;
                   while (i < slots.length) {
                     const slot = slots[i];
-                    const cellId = `${slot.id}-${day.id}`;
-                    const cell = cells[cellId];
+                    const slotCells = resolveCellsForSlotUtil(slot.id, day.id, cells, currentDate);
+                    const cell = slotCells[0];
                     const hasEvent = cell && cell.subject && cell.subject.trim() !== '';
 
                     if (hasEvent) {
@@ -1954,9 +1923,9 @@ export const Grid: React.FC = () => {
                         let j = i + 1;
                         const slotList = [slot];
                         while (j < slots.length) {
-                          const nextSlot = slots[j];
-                          const nextCellId = `${nextSlot.id}-${day.id}`;
-                          const nextCell = cells[nextCellId];
+                           const nextSlot = slots[j];
+                           const nextSlotCells = resolveCellsForSlotUtil(nextSlot.id, day.id, cells, currentDate);
+                           const nextCell = nextSlotCells[0];
                           if (
                             nextCell &&
                             nextCell.subject === cell.subject &&
@@ -1988,8 +1957,8 @@ export const Grid: React.FC = () => {
                       const slotList = [slot];
                       while (j < slots.length) {
                         const nextSlot = slots[j];
-                        const nextCellId = `${nextSlot.id}-${day.id}`;
-                        const nextCell = cells[nextCellId];
+                        const nextSlotCells = resolveCellsForSlotUtil(nextSlot.id, day.id, cells, currentDate);
+                        const nextCell = nextSlotCells[0];
                         const nextHasEvent = nextCell && nextCell.subject && nextCell.subject.trim() !== '';
                         if (!nextHasEvent) {
                           slotList.push(nextSlot);
