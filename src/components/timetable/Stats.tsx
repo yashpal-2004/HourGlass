@@ -12,8 +12,21 @@ export const Stats: React.FC = () => {
 
   const resolveCell = (slotId: string, dayId: string) => {
     const dateKey = getDayDateKey(dayId);
-    const dateKeyedId = `${slotId}-${dayId}-${dateKey}`;
-    return cells[dateKeyedId] ?? cells[`${slotId}-${dayId}`];
+    const dateKeyedPrefix = `${slotId}-${dayId}-${dateKey}`;
+    const dateKeyed = Object.values(cells).find(
+      c =>
+        c.dayId === dayId &&
+        (c.id === dateKeyedPrefix || c.id.startsWith(dateKeyedPrefix + '-'))
+    );
+    if (dateKeyed) return dateKeyed;
+
+    const templatePrefix = `${slotId}-${dayId}`;
+    return Object.values(cells).find(
+      c =>
+        c.dayId === dayId &&
+        !c.dateKey &&
+        (c.id === templatePrefix || c.id.startsWith(templatePrefix + '-'))
+    );
   };
 
   // Build span map to avoid double-counting merged blocks
