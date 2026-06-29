@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTimetable } from '../../context/TimetableContext';
 import { LucideIcon } from '../ui/LucideIcon';
 import { pastelColors, availableIcons } from '../../constants';
@@ -21,7 +21,6 @@ export const Grid: React.FC = () => {
     getDayDateKey,
     clearCell,
     clearThisEvent,
-    clearAllMatchingEvents,
     updateTimeSlot,
     removeDay,
     updateDay,
@@ -136,39 +135,7 @@ export const Grid: React.FC = () => {
     return lastSlotInBlock.endTime;
   };
 
-  const getCellTimingLayout = (
-    cellStartTime: string | undefined,
-    cellEndTime: string | undefined,
-    slotStartTime: string,
-    slotEndTime: string
-  ) => {
-    const toMins = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
-      return h * 60 + (m || 0);
-    };
-    const slotStart = toMins(slotStartTime);
-    const slotEnd = toMins(slotEndTime) || toMins(slotStartTime) + 60;
-    const slotDuration = slotEnd - slotStart || 60;
 
-    if (!cellStartTime && !cellEndTime) {
-      return { top: '0%', height: '100%', showLabel: true };
-    }
-
-    const evStart = cellStartTime ? toMins(cellStartTime) : slotStart;
-    const evEnd = cellEndTime ? toMins(cellEndTime) : slotEnd;
-
-    const clampedStart = Math.max(slotStart, evStart);
-    const clampedEnd = Math.min(slotEnd, evEnd);
-
-    const topPct = ((clampedStart - slotStart) / slotDuration) * 100;
-    const heightPct = ((clampedEnd - clampedStart) / slotDuration) * 100;
-
-    return {
-      top: `${topPct.toFixed(2)}%`,
-      height: `${Math.max(heightPct, 20).toFixed(2)}%`,
-      showLabel: heightPct >= 25
-    };
-  };
 
   // Copied Cell State (for copy/paste shortcut)
   const [copiedCellData, setCopiedCellData] = useState<Partial<TimetableCell> | null>(null);
@@ -642,28 +609,10 @@ export const Grid: React.FC = () => {
     });
   };
 
-  // Snap minutes to nearest 15-min boundary
-  const snapTo15 = (minutes: number) => Math.round(minutes / 15) * 15;
+
 
   // Compute target slot index + sub-slot time from mouse Y position within a row
-  const getSlotAndTimeFromPoint = (clientX: number, clientY: number) => {
-    const el = document.elementFromPoint(clientX, clientY);
-    const tr = el?.closest('tr[data-slot-id]');
-    if (!tr) return null;
-    const slotIdHovered = tr.getAttribute('data-slot-id')!;
-    const idx = slots.findIndex(s => s.id === slotIdHovered);
-    if (idx < 0) return null;
-    const rect = tr.getBoundingClientRect();
-    const fraction = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
-    const slotStart = slots[idx].startTime.split(':').map(Number);
-    const slotStartMins = slotStart[0] * 60 + slotStart[1];
-    const slotDur = 60;
-    const rawMins = slotStartMins + fraction * slotDur;
-    const snapped = snapTo15(rawMins);
-    const hh = String(Math.floor(snapped / 60) % 24).padStart(2, '0');
-    const mm = String(snapped % 60).padStart(2, '0');
-    return { slotIdx: idx, time: `${hh}:${mm}`, slotId: slotIdHovered };
-  };
+
 
 
 
@@ -980,9 +929,7 @@ export const Grid: React.FC = () => {
                             // Detect whether any two cards in this column truly overlap in time.
                             // If none overlap, we use a flex-column layout so cards stack and
                             // share the row height proportionally — no pixel-height constraint.
-                            const hasOverlapInCol = colCards.some((a, ai) =>
-                              colCards.some((b, bi) => ai !== bi && a.start < b.end && a.end > b.start)
-                            );
+
 
                             return (
                               <React.Fragment key={colIndex}>

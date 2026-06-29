@@ -8,7 +8,7 @@ interface LucideIconProps {
 }
 
 export const LucideIcon: React.FC<LucideIconProps> = ({ name, className = '', size = 18 }) => {
-  const IconComponent = (Icons as Record<string, React.ElementType>)[name];
+  const IconComponent = (Icons as any)[name];
 
   if (!IconComponent) {
     return <Icons.HelpCircle className={className} size={size} />;
