@@ -4,9 +4,10 @@ import { Coffee, Calendar } from 'lucide-react';
 import { useTimetable } from '../../context/TimetableContext';
 import { PASTEL_COLORS } from '../../constants';
 import type { TimetableCell } from '../../types';
+import { resolveCellsForSlot } from '../../utils/timetableUtils';
 
 export const Hero: React.FC = () => {
-  const { slots, days, cells, formatTime } = useTimetable();
+  const { slots, days, cells, formatTime, currentDate } = useTimetable();
 
   const parseTimeToMinutes = (timeStr: string) => {
     const [h, m] = timeStr.split(':').map(Number);
@@ -25,7 +26,8 @@ export const Hero: React.FC = () => {
 
     const items = slots
       .map(slot => {
-        const cell = cells[`${slot.id}-${activeDay.id}`];
+        const slotCells = resolveCellsForSlot(slot.id, activeDay.id, cells, currentDate);
+        const cell = slotCells[0];
         return { slot, cell };
       })
       .filter(item => item.cell && item.cell.subject && item.cell.subject.trim() !== '')
@@ -40,7 +42,11 @@ export const Hero: React.FC = () => {
       } else {
         const last = merged[merged.length - 1];
         const isSleepMerge = item.cell.subject === 'Sleep' && last.cell.subject === 'Sleep';
+        const hasCustomTime = 
+          !!(last.cell.eventStartTime || last.cell.eventEndTime || 
+             item.cell.eventStartTime || item.cell.eventEndTime);
         const isIdenticalMerge =
+          !hasCustomTime &&
           last.cell.subject === item.cell.subject &&
           last.cell.teacher === item.cell.teacher &&
           last.cell.room === item.cell.room &&
