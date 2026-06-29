@@ -205,22 +205,23 @@ export const Grid: React.FC = () => {
         if (seenCellIds.has(cell.id)) return;
         seenCellIds.add(cell.id);
 
-        // For cells WITHOUT custom times, also deduplicate by span-merge fingerprint.
-        // This prevents two template cells (e.g. s2-mon and s3-mon, both "WEBSITE") from
-        // both appearing as separate cards inside the same merged block.
-        if (!cell.eventStartTime && !cell.eventEndTime) {
-          const fingerprint = [
-            cell.subject,
-            cell.teacher || '',
-            cell.room || '',
-            cell.notes || '',
-            cell.color || '',
-            cell.iconName || '',
-            cell.categoryType || '',
-          ].join('|');
-          if (seenSpanFingerprints.has(fingerprint)) return;
-          seenSpanFingerprints.add(fingerprint);
-        }
+        // Deduplicate by span-merge fingerprint.
+        // This prevents multiple cells representing the same spanned block (with or without custom times)
+        // from appearing as duplicate cards in the block.
+        const fingerprint = [
+          cell.subject,
+          cell.eventStartTime || '',
+          cell.eventEndTime || '',
+          cell.teacher || '',
+          cell.room || '',
+          cell.notes || '',
+          cell.color || '',
+          cell.iconName || '',
+          cell.categoryType || '',
+        ].join('|');
+
+        if (seenSpanFingerprints.has(fingerprint)) return;
+        seenSpanFingerprints.add(fingerprint);
 
         blockCells.push(cell);
       });

@@ -282,17 +282,54 @@ export const TimetableProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Populate sleep logs matching those dates
     days.forEach(day => {
       const dateStr = activeWeekDates[day.id];
+
+      // Check if there is a sleep log for the previous day (Sunday) that extends into Monday morning
+      if (day.id === 'mon') {
+        const prevDObj = new Date(getDayDateObj(day.id));
+        prevDObj.setDate(prevDObj.getDate() - 1);
+        const prevDateStr = `${prevDObj.getFullYear()}-${String(prevDObj.getMonth() + 1).padStart(2, '0')}-${String(prevDObj.getDate()).padStart(2, '0')}`;
+        const prevLog = sleepLogs.find(l => l.dateStr === prevDateStr);
+        if (prevLog) {
+          const prevStartHour = parseInt(prevLog.startTime.split(':')[0], 10);
+          const prevEndHour = parseInt(prevLog.endTime.split(':')[0], 10);
+          if (prevStartHour > prevEndHour) {
+            currentSlots.forEach(slot => {
+              const slotHour = parseInt(slot.startTime.split(':')[0], 10);
+              if (slotHour < prevEndHour) {
+                const cellId = `${slot.id}-${day.id}-${dateStr}`;
+                updatedCells[cellId] = {
+                  id: cellId,
+                  slotId: slot.id,
+                  dayId: day.id,
+                  dateKey: dateStr,
+                  subject: 'Sleep',
+                  teacher: '',
+                  room: 'Bedroom',
+                  notes: `Logged Sleep (Woke at ${prevLog.endTime})`,
+                  color: 'gray',
+                  iconName: 'Coffee',
+                  categoryType: 'routine',
+                  eventStartTime: '00:00', // Clamp to midnight start
+                  eventEndTime: prevLog.endTime
+                };
+              }
+            });
+          }
+        }
+      }
+
       const log = sleepLogs.find(l => l.dateStr === dateStr);
       if (!log) return;
 
       const startHour = parseInt(log.startTime.split(':')[0], 10);
       const endHour = parseInt(log.endTime.split(':')[0], 10);
+      const isOvernight = startHour > endHour;
 
       currentSlots.forEach(slot => {
         const slotHour = parseInt(slot.startTime.split(':')[0], 10);
         let isSleeping = false;
 
-        if (startHour < endHour) {
+        if (!isOvernight) {
           isSleeping = slotHour >= startHour && slotHour < endHour;
         } else {
           // Night sleep portion on this day (after bed-time)
@@ -300,11 +337,12 @@ export const TimetableProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
 
         if (isSleeping) {
-          const cellId = `${slot.id}-${day.id}`;
+          const cellId = `${slot.id}-${day.id}-${dateStr}`;
           updatedCells[cellId] = {
             id: cellId,
             slotId: slot.id,
             dayId: day.id,
+            dateKey: dateStr,
             subject: 'Sleep',
             teacher: '',
             room: 'Bedroom',
@@ -313,24 +351,30 @@ export const TimetableProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             iconName: 'Coffee',
             categoryType: 'routine',
             eventStartTime: log.startTime,
-            eventEndTime: log.endTime
+            eventEndTime: isOvernight ? '24:00' : log.endTime // Clamp to midnight if overnight
           };
         }
       });
 
       // Night sleep portion extending into the next morning
-      if (startHour > endHour) {
+      if (isOvernight) {
         const nextDayIndex = (dayIdMap.indexOf(day.id) + 1) % 7;
         const nextDayId = dayIdMap[nextDayIndex];
+        
+        // Calculate the next day's date string
+        const nextDObj = new Date(getDayDateObj(day.id));
+        nextDObj.setDate(nextDObj.getDate() + 1);
+        const nextDateStr = `${nextDObj.getFullYear()}-${String(nextDObj.getMonth() + 1).padStart(2, '0')}-${String(nextDObj.getDate()).padStart(2, '0')}`;
 
         currentSlots.forEach(slot => {
           const slotHour = parseInt(slot.startTime.split(':')[0], 10);
           if (slotHour < endHour) {
-            const cellId = `${slot.id}-${nextDayId}`;
+            const cellId = `${slot.id}-${nextDayId}-${nextDateStr}`;
             updatedCells[cellId] = {
               id: cellId,
               slotId: slot.id,
               dayId: nextDayId,
+              dateKey: nextDateStr,
               subject: 'Sleep',
               teacher: '',
               room: 'Bedroom',
@@ -338,7 +382,7 @@ export const TimetableProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               color: 'gray',
               iconName: 'Coffee',
               categoryType: 'routine',
-              eventStartTime: log.startTime,
+              eventStartTime: '00:00', // Clamp to midnight start
               eventEndTime: log.endTime
             };
           }
@@ -355,7 +399,7 @@ export const TimetableProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const isNapping = slotHour >= napStartHour && slotHour < napEndHour;
 
           if (isNapping) {
-            const mainCellId = `${slot.id}-${day.id}`;
+            const mainCellId = `${slot.id}-${day.id}-${dateStr}`;
             const hasExistingEvent = updatedCells[mainCellId] && updatedCells[mainCellId].subject && updatedCells[mainCellId].subject !== 'Sleep';
             
             const cellId = hasExistingEvent ? `${mainCellId}-nap` : mainCellId;
@@ -364,6 +408,7 @@ export const TimetableProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               id: cellId,
               slotId: slot.id,
               dayId: day.id,
+              dateKey: dateStr,
               subject: 'Sleep',
               teacher: '',
               room: 'Home / Rest',

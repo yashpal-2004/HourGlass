@@ -1,4 +1,4 @@
-﻿import type { TimetableCell, TimeSlot } from '../types';
+import type { TimetableCell, TimeSlot } from '../types';
 
 // ---------------------------------------------------------------------------
 // Date helpers
@@ -126,10 +126,12 @@ export const getDayStats = (
 
   activeCells.forEach(cell => {
     const slot = slots.find(s => s.id === cell.slotId);
-    // FIX Bug 6: Use cell.id as dedup key when EITHER time field is set, not only both.
-    // Partial custom-time cells have unique ids; the slotId-subject fallback would merge distinct events.
+    // Use a dedup key based on subject and custom times when custom times are present.
+    // This correctly counts spanned events (like Sleep) once, while keeping separate custom events distinct.
     const hasAnyCustomTime = !!(cell.eventStartTime || cell.eventEndTime);
-    const eventKey = hasAnyCustomTime ? cell.id : `${cell.slotId}-${cell.subject}`;
+    const eventKey = hasAnyCustomTime 
+      ? `${cell.subject}-${cell.eventStartTime || ''}-${cell.eventEndTime || ''}` 
+      : `${cell.slotId}-${cell.subject}`;
 
     if (!countedEvents.has(eventKey)) {
       countedEvents.add(eventKey);
