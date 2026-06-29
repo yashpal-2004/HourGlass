@@ -826,8 +826,10 @@ export const Grid: React.FC = () => {
                       let colIndex = hasSleepCard ? 1 : 0;
                       while (colIndex < columnsList.length) {
                         const colCards = columnsList[colIndex];
-                        const lastCard = colCards[colCards.length - 1];
-                        if (!lastCard || lastCard.end <= card.start) {
+                        const hasOverlap = colCards.some(existingCard =>
+                          card.start < existingCard.end && card.end > existingCard.start
+                        );
+                        if (!hasOverlap) {
                           break;
                         }
                         colIndex++;
